@@ -4,6 +4,8 @@ import { Link, graphql } from "gatsby"
 import Bio from "../components/bio"
 import Layout from "../components/layout"
 import Seo from "../components/seo"
+// using ts
+// import UsingTypescript from "./using-typescript"
 
 const BlogIndex = ({ data, location }) => {
   const siteTitle = data.site.siteMetadata?.title || `Title`
@@ -23,6 +25,9 @@ const BlogIndex = ({ data, location }) => {
   }
 
   return (
+    // we can using typescript too.
+    // <UsingTypescript location={location} title={siteTitle}></UsingTypescript>
+
     <Layout location={location} title={siteTitle}>
       <Bio />
       <ol style={{ listStyle: `none` }}>
