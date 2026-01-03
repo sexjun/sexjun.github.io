@@ -1,0 +1,252 @@
+# IREE compielr学习目标
+
+# 关于目标
+
+
+
+**目标：**
+
+找到一个卷积算子， onnx格式的， 从IREE编译到我司的ASM，并成功在我司NPU上运行。
+
+
+
+```mathematica
+阶段 1（现在）
+Input MLIR
+  ↓
+IREE 编译管线
+  ↓
+Flow / Dispatch
+  ↓
+【你的 Compiler Backend】
+  ↓
+NPU IR / Binary / Task Graph
+  ↓
+【你的 Runtime】
+
+阶段 2（迁移）
+Flow / Dispatch
+  ↓
+IREE Stream
+  ↓
+HAL Executable
+  ↓
+IREE HAL Driver
+  ↓
+NPU
+
+```
+
+
+
+
+
+
+
+| 层级                   | 适合度 | 说明                  |
+| ---------------------- | ------ | --------------------- |
+| Linalg on Tensors      | ⭐⭐     | 太偏算子图，调度缺失  |
+| Linalg on Buffers      | ⭐⭐⭐    | 有 buffer，但仍偏通用 |
+| **IREE Flow Dispatch** | ⭐⭐⭐⭐   | **强烈推荐**          |
+| IREE Stream            | ⭐⭐⭐    | 已偏 runtime 调度     |
+| HAL Executable         | ⭐      | 已绑定 runtime        |
+
+
+
+- 关于将mlir转为支持我司架构的npu asm结构。
+
+1. 从 `Flow` 后劫持IR生成，
+2. 第一阶段就导出json就行了。
+3. 第二阶段在引入DIalect 
+   1. 用于表达：
+      - 指令级算子
+      - tile / cluster / memory scope
+      - 硬件专有属性
+
+
+
+在IREE里新增一个 `target`  `pass pipeline` `pass` ，不要在IREE已有的pass里去改代码。
+
+
+
+- 关于MLIR
+
+熟悉一下四个即可。
+
+**RewritePattern / OpRewritePattern**
+
+**DialectConversion（ConversionTarget + TypeConverter）**
+
+**Pass 注入与 pipeline 定位**
+
+**IR 可视化与 Debug（print-ir-after / dump）**
+
+
+
+
+
+# 学习计划
+
+### 第 1 周：把 IREE 编译 pipeline 拆清楚（只看 compiler）
+
+**目标**：你知道“从输入 MLIR 到 Flow/Dispatch 中间，每一步是谁干的”
+
+**任务**
+
+- 用 `iree-compile` + `--print-ir-after-all`
+- 对一个极小模型（1 个 matmul）
+- 标注：
+  - 哪个 pass 产生了 dispatch
+  - dispatch 里剩下哪些 op（linalg / arith / memref）
+
+**交付**
+
+- 一张 pipeline 手绘/文档图
+- 明确你“要插 pass 的位置”
+
+
+
+
+
+
+
+
+
+
+
+
+
+------
+
+### 第 2 周：在 Flow Dispatch 层写你的第一个 pass
+
+**目标**：你能“截获 dispatch”，并遍历其中的 op
+
+**任务**
+
+- 写一个 pass：
+  - 遍历 `flow.dispatch.region`
+  - 收集算子类型、shape、dtype
+  - 打印或导出为文本
+
+**交付**
+
+- 一个 pass，可以输出：
+
+  ```
+  Dispatch #3:
+    op: linalg.matmul
+    M=128 N=128 K=64
+    dtype: f16
+  ```
+
+------
+
+### 第 3 周：把 Dispatch 转成“你的 NPU 可执行表示（草稿版）”
+
+**目标**：你开始“像写后端一样思考”
+
+**任务**
+
+- 定义 **你的 NPU 中间表示（先不用 MLIR）**：
+  - JSON / protobuf / C++ struct
+- 在 pass 里：
+  - 每个 dispatch → 一个 NPU task
+  - 记录 buffer 依赖、输入输出
+
+**交付**
+
+- 一个 `model.npu.json`
+- 你已有 runtime 能加载并“假执行 / 仿真”
+
+------
+
+### 第 4 周：做合法性 & 子图切分（决定什么能跑 NPU）
+
+**目标**：你能决定“哪些 dispatch 能下沉到 NPU”
+
+**任务**
+
+- 制定规则：
+  - 支持哪些 op
+  - 支持哪些 dtype / shape
+- 不支持的 dispatch：
+  - 标记为 fallback
+  - 或直接拒绝（先简单）
+
+**交付**
+
+- 编译期能明确提示：
+
+  ```
+  Dispatch #7 not supported: dynamic shape
+  ```
+
+------
+
+### 第 5–6 周：引入 NPU Dialect（可选，但强烈建议）
+
+**目标**：让你的 IR 不再是“字符串导出”
+
+**任务**
+
+- 定义最小 `npu` dialect：
+  - `npu.matmul`
+  - `npu.conv`
+- 从 Flow Dispatch → NPU Dialect
+
+**交付**
+
+- MLIR 文件里出现：
+
+  ```
+  npu.matmul %A, %B -> %C {tile_m=64, tile_n=64}
+  ```
+
+------
+
+### 第 7 周：调度 / tiling / memory 决策前移到编译期
+
+**目标**：你开始吃掉 runtime 的工作
+
+**任务**
+
+- 在 lowering pass 中：
+  - 插入 tiling 参数
+  - 标注 SRAM / DRAM
+- 这些信息最终会被你 runtime 使用
+
+**交付**
+
+- NPU IR 明确包含：
+  - tile
+  - memory space
+  - execution order
+
+------
+
+### 第 8 周：为未来切换 IREE runtime 留好接口
+
+**目标**：你不返工
+
+**任务**
+
+- 确保你的 NPU IR：
+  - 可以自然映射为：
+    - HAL executable
+    - 或 IREE 的 command buffer 模型
+- 不把 runtime 假设写死在 compiler
+
+**交付**
+
+- 一份设计文档：
+  - “从当前 NPU IR → IREE HAL executable 的映射方案”
+
+
+
+# 插件系统
+
+插件系统最初的设计讨论： https://github.com/iree-org/iree/issues/12520
+
+IREE官方推荐的一个插件： https://github.com/nod-ai/iree-amd-aie/blob/main/iree_compiler_plugin.cmake
+
