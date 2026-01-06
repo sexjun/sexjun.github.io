@@ -323,6 +323,16 @@ Action 把下面这件事标准化了：
 
 # 二、MLIR的内部开发工具
 
+## ODS
+
+[Operation Definition Specification ](https://mlir.llvm.org/docs/DefiningDialects/Operations/)
+
+- TableGen `class` 类似于 C++ 类；它可以进行模板化和子类化。
+- TableGen `def` 类似于 C++ 对象；它可以通过特化 TableGen `class` 来声明（例如， `def MyDef : MyClass<...>;` ），也可以完全独立声明（例如， `def MyDef;` ）。它不能被进一步模板化或子类化。
+- TableGen `dag` 是一种专门用于表示元素有向无环图的类型。 `dag` 包含一个运算符和零个或多个参数。其语法为 `(operator arg0, arg1, argN)` 。运算符可以是任何 TableGen `def` ；参数可以是任何内容，包括 `dag` 本身。运算符和参数都可以附加名称，例如 `(MyOp:$op_name MyArg:$arg_name)` 。
+
+
+
 ## 2.1 定义方言
 
 [MLIR文档-Defining Dialect](https://mlir.llvm.org/docs/DefiningDialects/)
@@ -330,6 +340,66 @@ Action 把下面这件事标准化了：
 
 
 完全可以参考： `third_party/llvm-project/mlir/include/mlir/IR/DialectBase.td` 的定义
+
+
+
+```c++
+def IREEEncoding_Dialect : Dialect {
+  let name = "iree_encoding";
+  let cppNamespace = "::mlir::iree_compiler::IREE::Encoding";
+  let summary = [{
+    A dialect designed for tensor encoding attributes and ops.
+  }];
+  let description = [{des}];
+  let extraClassDeclaration = [{
+    void registerAttributes();
+  }];
+  let useDefaultAttributePrinterParser = 1;
+}
+
+```
+
+
+
+把 `def` 名字里的 `_Dialect` 后缀去掉，再加上 `Dialect` 作为类名惯例：
+
+- `IREEEncoding_Dialect`
+  - 去掉 `_Dialect` → `IREEEncoding`
+  - 加 `Dialect` → **`IREEEncodingDialect`**
+
+
+
+生成的效果：
+
+```c++
+class IREEEncodingDialect : public ::mlir::Dialect {
+  explicit IREEEncodingDialect(::mlir::MLIRContext *context);
+
+  void initialize();
+  friend class ::mlir::MLIRContext;
+public:
+  ~IREEEncodingDialect() override;
+  static constexpr ::llvm::StringLiteral getDialectNamespace() {
+    return ::llvm::StringLiteral("iree_encoding");
+  }
+
+  /// Parse an attribute registered to this dialect.
+  ::mlir::Attribute parseAttribute(::mlir::DialectAsmParser &parser,
+                                   ::mlir::Type type) const override;
+
+  /// Print an attribute registered to this dialect.
+  void printAttribute(::mlir::Attribute attr,
+                      ::mlir::DialectAsmPrinter &os) const override;
+
+    void registerAttributes();
+  };
+
+} // namespace mlir::iree_compiler::IREE::Encoding
+```
+
+
+
+
 
 
 
@@ -374,9 +444,47 @@ class MyDialect_Attr<string name, string attrMnemonic, list<Trait> traits = []>
 
 
 
+
+
+
+
+
+
 ## 2.3 定义op
 
 `third_party/llvm-project/mlir/include/mlir/IR/OpBase.td`
+
+
+
+```c++
+def IREEEncoding_SetEncodingOp : IREEEncoding_PureOp<"set_encoding",[
+   DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface, ["reifyResultShapes"]>, Pure
+  ]>
+```
+
+
+
+这个OP的定义 `IREEEncoding_SetEncodingOp` 
+
+TableGen 生成 C++ wrapper 类时，会把 `def` 名字里的 `Op` 后缀去掉，并把前缀（通常是 Dialect/文件前缀）去掉，只保留“核心 op 名”，因此得到：
+
+- `IREEEncoding_SetEncodingOp`
+  - 去掉 dialect 前缀 `IREEEncoding_`
+  - 去掉尾巴 `Op`
+  - 剩下 `SetEncoding`
+- 然后加上 `Op` 作为类名惯例 → **`SetEncodingOp`**
+
+所以我之前说的 `SetEncodingOp` 是按 MLIR/IREE 这类项目里最常见的生成结果（“去前缀 + 去 Op 再加 Op”这种风格）。
+
+
+
+生成结果：
+
+```c++
+class SetEncodingOp : public ::mlir::Op<SetEncodingOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::RankedTensorType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::ReifyRankedShapedTypeOpInterface::Trait, ::mlir::ConditionallySpeculatable::Trait, ::mlir::OpTrait::AlwaysSpeculatableImplTrait, ::mlir::MemoryEffectOpInterface::Trait> 
+```
+
+
 
 
 
@@ -531,7 +639,40 @@ out-of-place：分配新 buffer, 重新来一次读写
 
 in-place：直接覆盖  相当于forwarding，乒乓流水
 
+- 关于使用
 
+❌ 错误用法
+
+bufferize 之后直接继续 lowering
+ 👉 allocator bug、overlap、peak 不可控
+
+------
+
+✅ 正确用法
+
+bufferize 后 **立刻做三件事之一（或全部）**：
+
+1. **Liveness 分析**
+2. **Static SRAM allocation**
+3. **Alias 验证 / 断言**
+
+> **Bufferization 不是终点，是“内存分析的起点”。**
+
+
+
+- 关于什么时候需要Bufferization
+
+> **在“算法结构基本确定，但内存必须开始算”的那一刻。**
+
+具体信号是：
+
+- 你要开始做：
+  - SRAM 静态分配
+  - buffer timeline
+  - in-place 决策
+- 你需要：
+  - 明确每一块 buffer 的生命周期
+  - 知道哪些 tensor alias
 
 # 技巧
 
