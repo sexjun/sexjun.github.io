@@ -1,13 +1,16 @@
 {
-  "compiler": 1,
+  "frontend": 1,
+  "llm": 1,
   "mlir": 1,
   "ai": 2,
   "vibe": 2,
-  "risc-v-": 1,
-  "ai-compiler": 7,
-  "next-js": 4,
-  "math": 4,
-  "fuck-tag": 4,
-  "paper": 2,
+  "risc-v": 1,
+  "iree": 1,
+  "ai-infra": 3,
+  "ai-compiler": 5,
+  "next-js": 3,
+  "math": 3,
+  "fuck-tag": 3,
+  "paper": 1,
   "c": 1
 }
