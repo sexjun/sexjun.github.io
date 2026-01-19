@@ -1,11 +1,8 @@
 {
-  "next-js": 5,
+  "next-js": 4,
   "math": 4,
   "fuck-tag": 4,
   "paper": 2,
-  "ai-compiler": 3,
-  "c": 1,
-  "tailwind": 1,
-  "guide": 1,
-  "feature": 1
+  "ai-compiler": 4,
+  "c": 1
 }

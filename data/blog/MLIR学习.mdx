@@ -1,10 +1,10 @@
-```
+---
 title: MLIR学习笔记
 date: '2025-12-31'
 tags: ['compiler', 'mlir']
 draft: false
-summary: '学习MLIR的笔记'
-```
+summary: "学习MLIR的笔记"
+---
 
 # MLIR学习
 
@@ -107,7 +107,7 @@ IREE_LLVM_EMBEDDED_LINKER_TOOL_VERBOSE=1 - 环境变量，增加链接器详细�
 
 
 
-`ConversionPattern` 
+`ConversionPattern`
 
 
 
@@ -416,7 +416,7 @@ public:
 
   建议将属性类和类型类定义在不同的 `.td` 文件中，以便更好地封装它们。
 
-  
+
 
 
 
@@ -426,7 +426,7 @@ public:
 
 
 
-参考： `third_party/llvm-project/mlir/include/mlir/IR/AttrTypeBase.td` 
+参考： `third_party/llvm-project/mlir/include/mlir/IR/AttrTypeBase.td`
 
 ```c++
 // type
@@ -464,7 +464,7 @@ def IREEEncoding_SetEncodingOp : IREEEncoding_PureOp<"set_encoding",[
 
 
 
-这个OP的定义 `IREEEncoding_SetEncodingOp` 
+这个OP的定义 `IREEEncoding_SetEncodingOp`
 
 TableGen 生成 C++ wrapper 类时，会把 `def` 名字里的 `Op` 后缀去掉，并把前缀（通常是 Dialect/文件前缀）去掉，只保留“核心 op 名”，因此得到：
 
@@ -481,7 +481,7 @@ TableGen 生成 C++ wrapper 类时，会把 `def` 名字里的 `Op` 后缀去掉
 生成结果：
 
 ```c++
-class SetEncodingOp : public ::mlir::Op<SetEncodingOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::RankedTensorType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::ReifyRankedShapedTypeOpInterface::Trait, ::mlir::ConditionallySpeculatable::Trait, ::mlir::OpTrait::AlwaysSpeculatableImplTrait, ::mlir::MemoryEffectOpInterface::Trait> 
+class SetEncodingOp : public ::mlir::Op<SetEncodingOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::RankedTensorType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::ReifyRankedShapedTypeOpInterface::Trait, ::mlir::ConditionallySpeculatable::Trait, ::mlir::OpTrait::AlwaysSpeculatableImplTrait, ::mlir::MemoryEffectOpInterface::Trait>
 ```
 
 
@@ -528,7 +528,7 @@ if (auto iface = dyn_cast<SomeOpInterface>(op)) {
 
 
 
-## Conversion 
+## Conversion
 
 [MLIR文档-Dialect Conversion](https://mlir.llvm.org/docs/DialectConversion/#)
 
@@ -591,7 +591,7 @@ if (auto iface = dyn_cast<SomeOpInterface>(op)) {
 
 
 
-## 3.1 Bufferization  
+## 3.1 Bufferization
 
 > **MLIR 的 Bufferization 是用来解决：
 >  「如何把 \*以值（tensor）为中心、隐含内存语义\* 的 IR，系统地转换成 \*以显式内存（buffer/memref）为中心、可分析可分配\* 的 IR」这个问题。**
@@ -685,7 +685,7 @@ bufferize 后 **立刻做三件事之一（或全部）**：
   - 不带任何参数运行 `mlir-opt` 会从标准输入读取文本或字节码形式的 IR，对其进行解析并运行验证器，然后将文本格式写回标准输出。这是测试输入的 MLIR 是否格式良好的好方法。
   - 作用
     - 单独调用一个pass
-    - 
+    -
 
 
 
