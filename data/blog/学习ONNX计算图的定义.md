@@ -1,8 +1,13 @@
+---
+title: 学习ONNX计算图的定义
+date: '2025-12-15'
+tags: ['ai compiler']
+draft: false
+summary: '学习ONNX计算图的定义'
+---
+
+
 # 学习ONNX计算图的定义
-
-
-
-
 
 ```protobuf
 message GraphProto {
@@ -26,8 +31,6 @@ message GraphProto {
 }
 ```
 
-
-
 ## 输入，输出，中间tensor
 
 整个模型的输入，输出，和中间的tensor， 都是只存储了一个 tensor name。
@@ -45,10 +48,6 @@ message ValueInfoProto {
   repeated StringStringEntryProto metadata_props = 4;
 }
 ```
-
-
-
-
 
 ## tensor
 
@@ -89,10 +88,6 @@ message TensorProto {
 }
 ```
 
-
-
-
-
 ## node
 
 ```protobuf
@@ -111,4 +106,3 @@ message NodeProto {
   optional string doc_string = 6;
 }
 ```
-
