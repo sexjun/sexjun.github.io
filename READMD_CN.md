@@ -17,3 +17,12 @@
   [vercel blog](https://sexjun-github-io.vercel.app/)
 
 - netlify
+
+
+
+# 本地开发
+
+```shell
+yarn install
+yarn dev
+```
