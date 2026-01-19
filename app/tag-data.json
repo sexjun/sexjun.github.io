@@ -1,10 +1,10 @@
 {
-  "ai": 2,
-  "vibe": 2,
-  "ai-compiler": 6,
   "compiler": 1,
   "mlir": 1,
+  "ai": 2,
+  "vibe": 2,
   "risc-v-": 1,
+  "ai-compiler": 6,
   "next-js": 4,
   "math": 4,
   "fuck-tag": 4,
